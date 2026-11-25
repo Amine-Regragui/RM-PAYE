@@ -1,0 +1,96 @@
+# RM Paie — compléments à la configuration officielle Supabase auto-hébergée.
+# Ajouté par installer.sh via : sh run.sh config add rmpaie
+
+services:
+  # Le serveur web Caddy reçoit tout le trafic HTTPS ; la passerelle API n'est plus exposée directement.
+  api-gw:
+    ports: !reset []
+
+  # Base de données : jamais exposée sur Internet (Docker contourne le pare-feu ufw pour les ports publiés).
+  # Accès local uniquement, par exemple via un tunnel SSH : ssh -L 5432:127.0.0.1:5432 serveur
+  supavisor:
+    ports: !override
+      - 127.0.0.1:${POSTGRES_PORT}:5432
+      - 127.0.0.1:${POOLER_PROXY_PORT_TRANSACTION}:6543
+
+  caddy:
+    container_name: rmpaie-caddy
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    depends_on:
+      api-gw:
+        condition: service_healthy
+      studio:
+        condition: service_healthy
+    environment:
+      DOMAINE: ${RMPAIE_DOMAINE}
+      EMAIL_ADMIN: ${RMPAIE_EMAIL_ADMIN}
+      STUDIO_IP_AUTORISEES: ${RMPAIE_STUDIO_IP}
+      ORIGINE_PAIEMENT: ${RMPAIE_ORIGINE_PAIEMENT}
+      PROXY_AUTH_USERNAME: ${DASHBOARD_USERNAME}
+      PROXY_AUTH_PASSWORD: ${DASHBOARD_PASSWORD}
+    command:
+      - /bin/sh
+      - -c
+      - |
+        PROXY_AUTH_HASH=$$(caddy hash-password --plaintext "$$PROXY_AUTH_PASSWORD") && \
+        printf '%s %s\n' "$$PROXY_AUTH_USERNAME" "$$PROXY_AUTH_HASH" > /config/dashboard-auth && \
+        exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+    # Le serveur web n'a aucun privilège particulier sur la machine
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./volumes/proxy/rmpaie/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../site:/srv/site:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  # Comptes : mots de passe complexes et double authentification exigés par le serveur
+  auth:
+    environment:
+      GOTRUE_PASSWORD_MIN_LENGTH: "10"
+      GOTRUE_PASSWORD_REQUIRED_CHARACTERS: 'abcdefghijklmnopqrstuvwxyz:ABCDEFGHIJKLMNOPQRSTUVWXYZ:0123456789:!@#$$%^&*()_+-=[]{}|;,.<>/?~'
+      GOTRUE_MFA_TOTP_ENROLL_ENABLED: "true"
+      GOTRUE_MFA_TOTP_VERIFY_ENABLED: "true"
+      GOTRUE_MFA_MAX_ENROLLED_FACTORS: "3"
+      GOTRUE_SMTP_SENDER_NAME: ${SMTP_SENDER_NAME}
+      # Anti-abus : au plus 30 e-mails de confirmation ou de réinitialisation par heure, 30 vérifications par 5 minutes et par IP
+      GOTRUE_RATE_LIMIT_EMAIL_SENT: "30"
+      GOTRUE_RATE_LIMIT_VERIFY: "30"
+      GOTRUE_RATE_LIMIT_TOKEN_REFRESH: "150"
+      # Sessions : jetons de rafraîchissement à usage unique (un jeton volé puis rejoué révoque la session),
+      # durée maximale de 12 heures, fin après 1 heure d'inactivité côté serveur
+      GOTRUE_SECURITY_REFRESH_TOKEN_ROTATION_ENABLED: "true"
+      GOTRUE_SECURITY_REFRESH_TOKEN_REUSE_INTERVAL: "10"
+      GOTRUE_SESSIONS_TIMEBOX: "12h"
+      GOTRUE_SESSIONS_INACTIVITY_TIMEOUT: "1h"
+      GOTRUE_MFA_RATE_LIMIT_CHALLENGE_AND_VERIFY: "15"
+
+  # Fonctions serveur RM Paie : paiement, envois, rappels, alertes
+  functions:
+    environment:
+      SITE_URL: ${SITE_URL}
+      CMI_CLIENT_ID: ${RMPAIE_CMI_CLIENT_ID}
+      CMI_STORE_KEY: ${RMPAIE_CMI_STORE_KEY}
+      CMI_GATEWAY_URL: ${RMPAIE_CMI_GATEWAY_URL}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_SECURITE: ${RMPAIE_SMTP_SECURITE}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_ADMIN_EMAIL: ${SMTP_ADMIN_EMAIL}
+      EMAIL_EXPEDITEUR: ${RMPAIE_EMAIL_EXPEDITEUR}
+      WHATSAPP_TOKEN: ${RMPAIE_WHATSAPP_TOKEN}
+      WHATSAPP_PHONE_ID: ${RMPAIE_WHATSAPP_PHONE_ID}
+      WHATSAPP_TEMPLATE: ${RMPAIE_WHATSAPP_TEMPLATE}
+      WHATSAPP_TEMPLATE_LANG: ${RMPAIE_WHATSAPP_TEMPLATE_LANG}
+      CRON_SECRET: ${RMPAIE_CRON_SECRET}
+      ALERTE_EMAIL: ${RMPAIE_ALERTE_EMAIL}
+
+volumes:
+  caddy_data:
+  caddy_config:

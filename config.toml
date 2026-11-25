@@ -1,0 +1,8 @@
+# Réglages Supabase Auth (à reporter aussi dans le tableau de bord : Authentication > Providers > Email / Policies)
+[auth]
+# Mot de passe complexe exigé côté serveur, pour tous les comptes
+minimum_password_length = 10
+password_requirements = "lower_upper_letters_digits_symbols"
+[auth.email]
+enable_confirmations = true
+secure_password_change = true

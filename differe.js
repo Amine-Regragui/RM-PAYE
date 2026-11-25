@@ -1,0 +1,2 @@
+/* Bibliothèques PDF et ZIP chargées après l'affichage de la page */
+window.addEventListener('load',function(){setTimeout(function(){['jspdf.umd.min.js','jspdf.plugin.autotable.min.js','jszip.min.js'].reduce(function(p,s){return p.then(function(){return new Promise(function(ok){var e=document.createElement('script');e.src=s;e.onload=e.onerror=ok;document.head.appendChild(e);});});},Promise.resolve());},300);});

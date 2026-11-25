@@ -1,0 +1,16 @@
+# En-têtes de sécurité (Netlify et Cloudflare Pages) : HTTPS obligatoire, pas d'intégration dans un autre site
+/*
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  X-Robots-Tag: noai, noimageai
+  Cross-Origin-Opener-Policy: same-origin
+  Content-Security-Policy: default-src 'self'; script-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; media-src 'self'; frame-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://*.cmi.co.ma; frame-ancestors 'none'; upgrade-insecure-requests
+/vendor/*
+  Cache-Control: public, max-age=31536000, immutable
+/app.js
+  X-Robots-Tag: noindex, noai
+/saas.js
+  X-Robots-Tag: noindex, noai
